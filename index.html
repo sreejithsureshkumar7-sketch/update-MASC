@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Madha Attendance</title>
+  <meta name="theme-color" content="#2563eb"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <link rel="stylesheet" href="style.css"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+  <div id="toast"></div>
+
+  <div id="classAlert" class="class-alert hidden">
+    <div class="class-alert-card">
+      <div id="classAlertText"></div>
+      <div class="class-alert-btns">
+        <button onclick="goToClassFromAlert()">Go to Class</button>
+        <button class="dismiss" onclick="dismissClassAlert()">Later</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="loginPage" class="login-page">
+    <div class="login-card">
+      <div class="brand">🎓</div>
+      <h1>Madha Attendance</h1>
+      <p>Admin / Staff / CR / HOD login</p>
+      <select id="loginRole">
+        <option value="admin">Admin</option>
+        <option value="staff">Staff</option>
+        <option value="cr">CR</option>
+        <option value="hod">HOD</option>
+      </select>
+      <input id="loginUsername" placeholder="Username" value="admin"/>
+      <input id="loginPassword" type="password" placeholder="Password" value="admin123"/>
+      <button onclick="login()">Login</button>
+      <button id="installBtn" class="install hidden">Install App</button>
+      <small>Default Admin: <b>admin</b> / <b>admin123</b></small>
+    </div>
+  </section>
+
+  <section id="appPage" class="app hidden">
+    <aside class="sidebar">
+      <h2>🎓 Madha<br/>Attendance</h2>
+      <button id="navDashboard" onclick="showPage('dashboard')">Dashboard</button>
+      <button id="navStudents" onclick="showPage('students')">Students</button>
+      <button id="navAttendance" onclick="showPage('attendance')">Attendance</button>
+      <button id="navReports" onclick="showPage('reports')">Reports</button>
+      <button id="navNotifications" onclick="showPage('notifications')">Notifications</button>
+      <button id="navTimetable" onclick="showPage('timetable')">Timetable</button>
+      <button id="navAlumni" onclick="showPage('alumni')">Passed Out</button>
+      <button id="navSubjects" onclick="showPage('subjects')">Subjects</button>
+      <button id="navLeave" onclick="showPage('leave')">Leave</button>
+      <button id="usersNavBtn" class="hidden" onclick="showPage('users')">Manage Users</button>
+      <button id="navSettings" onclick="showPage('settings')">Firebase Check</button>
+      <button onclick="logout()">Logout</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Dashboard</h1>
+        <span id="currentUser"></span>
+      </header>
+
+      <div id="dashboard" class="page">
+        <div class="stats">
+          <div class="stat"><b id="totalStudents">0</b><span>Total Students</span></div>
+          <div class="stat"><b id="totalPresent">0</b><span>Today Present (Hrs)</span></div>
+          <div class="stat"><b id="totalAbsent">0</b><span>Today Absent (Hrs)</span></div>
+          <div class="stat"><b id="avgPercent">0%</b><span>Today %</span></div>
+        </div>
+        <div class="card">
+          <h2>Weekly / Monthly Analytics</h2>
+          <canvas id="dashboardChart"></canvas>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h2>Boys — Today</h2>
+            <canvas id="boysChart"></canvas>
+          </div>
+          <div class="card">
+            <h2>Girls — Today</h2>
+            <canvas id="girlsChart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h2>All Departments — Today Present (Hrs)</h2>
+          <canvas id="departmentChart"></canvas>
+        </div>
+      </div>
+
+      <div id="students" class="page hidden">
+        <div class="card">
+          <h2>Add Student Details</h2>
+          <div class="grid">
+            <input id="sName" placeholder="Student Name"/>
+            <input id="sRoll" placeholder="Roll Number"/>
+            <input id="sReg" placeholder="Register Number"/>
+            <select id="sDept">
+              <option value="">Select Department</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            </select>
+            <select id="sYear">
+              <option value="">Select Year</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <select id="sGender">
+              <option value="">Select Gender</option>
+              <option>Male</option><option>Female</option>
+            </select>
+            <input id="sSection" placeholder="Section"/>
+            <input id="sPhone" placeholder="Student Phone"/>
+            <input id="sParentPhone" placeholder="Parent Phone with country code e.g. 919876543210"/>
+            <input id="sEmail" placeholder="Email"/>
+            <input id="sAddress" placeholder="Address"/>
+            <input id="sPhoto" type="file" accept="image/*"/>
+          </div>
+          <button onclick="saveStudent()">Save Student to Firebase</button>
+        </div>
+
+        <div class="card">
+          <h2>Students List</h2>
+          <div class="filters">
+            <select id="filterDept" onchange="loadStudents()">
+              <option value="">All Departments</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            
+            </select>
+            <select id="filterYear" onchange="loadStudents()">
+              <option value="">All Years</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <input id="searchStudent" oninput="loadStudents()" placeholder="Search name / roll"/>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Photo</th><th>Name</th><th>Roll</th><th>Dept</th><th>Year</th><th>Parent</th><th>Notify</th><th id="editColHeader" class="hidden">Edit</th></tr></thead>
+              <tbody id="studentTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="editStudentModal" class="class-alert hidden">
+        <div class="class-alert-card edit-card">
+          <h2>Edit Student</h2>
+          <div class="grid">
+            <input id="eName" placeholder="Student Name"/>
+            <input id="eRoll" placeholder="Roll Number"/>
+            <input id="eReg" placeholder="Register Number"/>
+            <select id="eDept">
+              <option value="">Select Department</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            </select>
+            <select id="eYear">
+              <option value="">Select Year</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <select id="eGender">
+              <option value="">Select Gender</option>
+              <option>Male</option><option>Female</option>
+            </select>
+            <input id="eSection" placeholder="Section"/>
+            <input id="ePhone" placeholder="Student Phone"/>
+            <input id="eParentPhone" placeholder="Parent Phone with country code"/>
+            <input id="eEmail" placeholder="Email"/>
+            <input id="eAddress" placeholder="Address"/>
+            <input id="ePhoto" type="file" accept="image/*"/>
+          </div>
+          <div class="class-alert-btns">
+            <button onclick="saveStudentEdit()">Update Student</button>
+            <button class="dismiss" onclick="closeEditStudentModal()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="attendance" class="page hidden">
+        <div class="card">
+          <h2>Subject-wise Attendance</h2>
+          <div class="grid">
+            <input id="aDate" type="date" onchange="checkPeriodLocks()"/>
+            <select id="aSubject" onchange="checkPeriodLocks()">
+              <option value="">Select Subject</option>
+            </select>
+            <select id="aDept" onchange="loadSubjectOptions(); checkPeriodLocks()">
+              <option value="">Select Department</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            
+            </select>
+            <select id="aYear" onchange="loadSubjectOptions(); checkPeriodLocks()">
+              <option value="">Select Year</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+          </div>
+          <div class="card" style="margin:10px 0;padding:12px;">
+            <b>Period (Mani) - select 1 to 5</b>
+            <div id="periodChecks" class="period-checks">
+              <label><input type="checkbox" value="Period 1"/> <span>Period 1</span></label>
+              <label><input type="checkbox" value="Period 2"/> <span>Period 2</span></label>
+              <label><input type="checkbox" value="Period 3"/> <span>Period 3</span></label>
+              <label><input type="checkbox" value="Period 4"/> <span>Period 4</span></label>
+              <label><input type="checkbox" value="Period 5"/> <span>Period 5</span></label>
+            </div>
+          </div>
+          <button onclick="loadAttendanceStudents()">Load Students</button>
+          <div id="attendanceList"></div>
+          <button onclick="saveAttendance()">Save Attendance</button>
+        </div>
+      </div>
+
+      <div id="reports" class="page hidden">
+        <div class="card">
+          <h2>Reports</h2>
+          <div class="filters">
+            <select id="rDept" onchange="generateReport()">
+              <option value="">All Departments</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            
+            </select>
+            <select id="rYear" onchange="generateReport()">
+              <option value="">All Years</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <input id="rSubject" oninput="generateReport()" placeholder="Subject optional"/>
+            <select id="rPeriod" onchange="generateReport()">
+              <option value="">All Periods</option>
+              <option>Period 1</option><option>Period 2</option><option>Period 3</option><option>Period 4</option><option>Period 5</option>
+            </select>
+          </div>
+          <button onclick="downloadCSV()">Download Excel CSV</button>
+          <button onclick="window.print()">Print / Save PDF</button>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Roll</th><th>Present</th><th>Absent</th><th>Total</th><th>Percentage</th></tr></thead>
+              <tbody id="reportTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="notifications" class="page hidden">
+        <div class="card">
+          <h2>Parent SMS & WhatsApp</h2>
+          <p>Students list-la SMS / WhatsApp button click pannunga.</p>
+        </div>
+      </div>
+
+      <div id="timetable" class="page hidden">
+        <div class="card">
+          <h2>Upload Your Timetable</h2>
+          <p>Ungaloda weekly time table entry pannunga. Antha nerathula automatic ah "go to class" notification varum.</p>
+          <div class="grid">
+            <select id="ttDay">
+              <option value="1">Monday</option><option value="2">Tuesday</option>
+              <option value="3">Wednesday</option><option value="4">Thursday</option>
+              <option value="5">Friday</option><option value="6">Saturday</option>
+            </select>
+            <select id="ttPeriod">
+              <option value="Period 1">Period 1 (09:00 - 10:00)</option>
+              <option value="Period 2">Period 2 (10:00 - 11:00)</option>
+              <option value="Period 3">Period 3 (11:00 - 12:00)</option>
+              <option value="Period 4">Period 4 (12:00 - 13:00)</option>
+              <option value="Period 5">Period 5 (13:00 - 14:00)</option>
+            </select>
+            <select id="ttDept">
+              <option value="">Select Department</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            </select>
+            <select id="ttYear">
+              <option value="">Select Year</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <input id="ttSection" placeholder="Section (optional)"/>
+            <input id="ttSubject" placeholder="Subject"/>
+          </div>
+          <button onclick="saveTimetableEntry()">Add to Timetable</button>
+        </div>
+
+        <div class="card">
+          <h2>Or Upload Timetable PDF</h2>
+          <p>Excel/Word la irundhu "Export as PDF" panna file venum (scanned photo work aagathu). Upload pannina udane, ella periods um automatic ah detect pannum — save pannurathukku munnadi neenga confirm pannanum.</p>
+          <input type="file" id="ttPdfFile" accept="application/pdf"/>
+          <button onclick="handleTimetablePdfUpload()">Upload &amp; Detect</button>
+
+          <div id="pdfPreviewSection" class="hidden">
+            <h3>1. Detected Grid (check pannunga, thappu irundha idhula edit pannalam)</h3>
+            <div id="pdfGridPreview" class="table-wrap"></div>
+            <button onclick="rescanPdfCodes()">Re-scan Codes (edit pannitta pinnadi click pannunga)</button>
+
+            <h3>2. Ivvalavu Code um ethukku nu sollunga (Department + Year)</h3>
+            <div id="pdfLegendForm"></div>
+
+            <h3>3. Day Order → Weekday</h3>
+            <p>Unga college "Day Order" rotate aagum na, indha week ku eppadi irukku nu sollunga.</p>
+            <div id="pdfDayOrderForm"></div>
+
+            <button onclick="confirmPdfTimetable()">✅ Confirm & Save Timetable</button>
+            <button class="dismiss" onclick="cancelPdfPreview()">Cancel</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>My Timetable</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Day</th><th>Period</th><th>Dept</th><th>Year</th><th>Section</th><th>Subject</th><th></th></tr></thead>
+              <tbody id="timetableTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="alumni" class="page hidden">
+        <div class="card">
+          <h2>Passed Out Students (Alumni)</h2>
+          <div class="filters">
+            <select id="alumniDept" onchange="loadAlumni()">
+              <option value="">All Departments</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            </select>
+            <input id="alumniSearch" oninput="loadAlumni()" placeholder="Search name / roll"/>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Roll</th><th>Dept</th><th>Passed Out Year</th><th>Parent</th></tr></thead>
+              <tbody id="alumniTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="subjects" class="page hidden">
+        <div class="card">
+          <h2>Subject Master (Admin/HOD only)</h2>
+          <p>Idhula add panna subjects thaan Attendance page-la dropdown-la varum. PT / Library mari special periods ku "Special period" checkbox tick pannunga.</p>
+          <div class="grid">
+            <select id="subDept">
+              <option value="All Departments">All Departments</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            </select>
+            <select id="subYear">
+              <option value="All Years">All Years</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+            <input id="subName" placeholder="Subject name (e.g. Tamil, PT Period, Library Hour)"/>
+            <label><input type="checkbox" id="subSpecial"/> Special period (PT / Library type)</label>
+          </div>
+          <button onclick="saveSubject()">Add Subject</button>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Subject</th><th>Department</th><th>Year</th><th>Type</th><th></th></tr></thead>
+              <tbody id="subjectTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="leave" class="page hidden">
+        <div class="card">
+          <h2>Apply Leave</h2>
+          <p>Unga andha date-ku class irundha, ovvoru period-kum substitute staff select pannanum, appo thaan leave apply aagum. Exam day na, substitute thevai illa.</p>
+          <div class="grid">
+            <input id="leaveDate" type="date" onchange="loadLeavePeriodsForDate()"/>
+            <label><input type="checkbox" id="leaveExamDay" onchange="loadLeavePeriodsForDate()"/> Exam Day (substitute thevai illa)</label>
+          </div>
+          <input id="leaveReason" placeholder="Reason for leave" style="width:100%;margin:8px 0;box-sizing:border-box;"/>
+          <div id="leavePeriodsList"></div>
+          <button onclick="submitLeaveRequest()">Submit Leave Request</button>
+        </div>
+        <div class="card">
+          <h2>My Leave Requests</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Reason</th><th>Exam Day</th><th>Periods Covered</th></tr></thead>
+              <tbody id="myLeaveTable"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" id="allLeaveCard">
+          <h2>All Staff Leave Requests (Admin/HOD)</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Staff</th><th>Date</th><th>Reason</th><th>Exam Day</th><th>Periods Covered</th></tr></thead>
+              <tbody id="allLeaveTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="users" class="page hidden">
+        <div class="card">
+          <h2>Create Staff / CR / HOD Login</h2>
+          <div class="grid">
+            <select id="uRole">
+              <option value="staff">Staff</option>
+              <option value="cr">CR</option>
+              <option value="hod">HOD</option>
+            </select>
+            <input id="uUsername" placeholder="Username"/>
+            <input id="uPassword" type="password" placeholder="Password"/>
+            <select id="uDept">
+              <option value="">Select Department</option>
+              <option>Computer Science</option><option>BCA</option><option>B.Com</option>
+              <option>BBA</option><option>Mathematics</option><option>English</option><option>Bio Tech</option><option>M.com</option><option>Hoteal Management</option>
+            
+            </select>
+            <select id="uYear">
+              <option value="">All Years</option>
+              <option>I Year</option><option>II Year</option><option>III Year</option>
+            </select>
+          </div>
+          <button onclick="saveUser()">Create Login</button>
+        </div>
+        <div class="card">
+          <h2>Existing Logins</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Username</th><th>Role</th><th>Department</th><th>Year</th><th>Action</th></tr></thead>
+              <tbody id="userTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings" class="page hidden">
+        <div class="card">
+          <h2>Academic Year Promotion</h2>
+          <p>I Year → II Year → III Year automatic ah every year <b>June 1st</b> aachi na check aagum (login panna udane).
+          III Year students "Passed Out" nu thani ya move aayidum, active list la irundhu poidum.</p>
+          <p>Last promotion run: <b id="lastPromotionYear">-</b></p>
+          <button onclick="runPromotionNow()">Run Promotion Now (manual override)</button>
+        </div>
+        <div class="card">
+          <h2>Firebase Stored Data Check</h2>
+          <button onclick="firebaseCheck()">Refresh Firebase Data</button>
+          <pre id="firebaseOutput">{}</pre>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
