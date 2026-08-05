@@ -190,6 +190,10 @@
           <h2>Subject-wise Attendance</h2>
           <div class="grid">
             <input id="aDate" type="date" onchange="checkPeriodLocks()"/>
+            <select id="aSemester" onchange="loadSubjectOptions(); checkPeriodLocks()">
+              <option value="Odd">Odd Semester</option>
+              <option value="Even">Even Semester</option>
+            </select>
             <select id="aSubject" onchange="checkPeriodLocks()">
               <option value="">Select Subject</option>
             </select>
@@ -347,7 +351,7 @@
       <div id="subjects" class="page hidden">
         <div class="card">
           <h2>Subject Master (Admin/HOD only)</h2>
-          <p>Idhula add panna subjects thaan Attendance page-la dropdown-la varum. PT / Library mari special periods ku "Special period" checkbox tick pannunga.</p>
+          <p>Idhula add panna subjects thaan Attendance page-la dropdown-la varum. Odd/Even Semester select pannunga (Special period na semester matter aagathu — ella semester kum varum). PT / Library mari special periods ku "Special period" checkbox tick pannunga.</p>
           <div class="grid">
             <select id="subDept">
               <option value="All Departments">All Departments</option>
@@ -358,13 +362,17 @@
               <option value="All Years">All Years</option>
               <option>I Year</option><option>II Year</option><option>III Year</option>
             </select>
+            <select id="subSemester">
+              <option value="Odd">Odd Semester</option>
+              <option value="Even">Even Semester</option>
+            </select>
             <input id="subName" placeholder="Subject name (e.g. Tamil, PT Period, Library Hour)"/>
             <label><input type="checkbox" id="subSpecial"/> Special period (PT / Library type)</label>
           </div>
           <button onclick="saveSubject()">Add Subject</button>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Subject</th><th>Department</th><th>Year</th><th>Type</th><th></th></tr></thead>
+              <thead><tr><th>Subject</th><th>Department</th><th>Year</th><th>Semester</th><th>Type</th><th></th></tr></thead>
               <tbody id="subjectTable"></tbody>
             </table>
           </div>
@@ -439,6 +447,15 @@
       </div>
 
       <div id="settings" class="page hidden">
+        <div class="card">
+          <h2>Current Semester</h2>
+          <p>Idha Odd/Even nu set pannunga — Attendance page Subject dropdown la, andha semester-oda subjects mattum thaan ella department kum kaattum.</p>
+          <select id="currentSemester">
+            <option value="Odd">Odd Semester</option>
+            <option value="Even">Even Semester</option>
+          </select>
+          <button onclick="saveCurrentSemester()">Save Semester</button>
+        </div>
         <div class="card">
           <h2>Academic Year Promotion</h2>
           <p>I Year → II Year → III Year automatic ah every year <b>June 1st</b> aachi na check aagum (login panna udane).

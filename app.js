@@ -4,6 +4,7 @@ let studentsData = [];
 let reportRows = [];
 let chart = null;
 let boysChart = null, girlsChart = null, deptChart = null;
+let currentSemesterCache = "Odd";
 
 // ==========================================================
 // "Attendance Day" helpers — the day resets fresh at 6:00 AM
@@ -115,8 +116,32 @@ function enterApp(){
   $("currentUser").innerText = currentUser.role.toUpperCase() + " - " + currentUser.username +
     (currentUser.department ? ` (${currentUser.department}${currentUser.year ? ", "+currentUser.year : ""})` : "");
   applyRoleAccess();
+  loadCurrentSemesterSetting();
   if(currentUser.role === "admin" || currentUser.role === "hod") checkAndRunPromotion();
   if(currentUser.role === "staff") initStaffNotifications();
+}
+
+async function loadCurrentSemesterSetting(){
+  try{
+    const doc = await db.collection("settings").doc("semester").get();
+    currentSemesterCache = doc.exists ? (doc.data().value || "Odd") : "Odd";
+    if($("aSemester")) $("aSemester").value = currentSemesterCache;
+    if($("currentSemester")) $("currentSemester").value = currentSemesterCache;
+  }catch(err){ console.error("loadCurrentSemesterSetting error:", err); }
+  return currentSemesterCache;
+}
+
+async function saveCurrentSemester(){
+  if(!currentUser || (currentUser.role !== "admin" && currentUser.role !== "hod")){
+    alert("Idha admin/HOD mattum thaan use panna mudiyum"); return;
+  }
+  try{
+    const value = $("currentSemester").value;
+    await db.collection("settings").doc("semester").set({ value, updatedAt: new Date().toISOString() }, { merge:true });
+    currentSemesterCache = value;
+    if($("aSemester")) $("aSemester").value = value;
+    toast(`Current Semester = ${value} ✅ (ella dept ku um andha semester subjects mattum ippa kaanum)`);
+  }catch(err){ alert("Save semester error: " + err.message); console.error(err); }
 }
 
 function applyRoleAccess(){
@@ -147,9 +172,9 @@ function showPage(page){
   $("pageTitle").innerText = page.charAt(0).toUpperCase()+page.slice(1);
   if(page==="dashboard") loadDashboard();
   if(page==="students"){ lockDeptYear("filterDept","filterYear"); lockDeptYear("sDept","sYear"); loadStudents(); }
-  if(page==="attendance"){ lockDeptYear("aDept","aYear"); checkPeriodLocks(); }
+  if(page==="attendance"){ lockDeptYear("aDept","aYear"); if($("aSemester")) $("aSemester").value = currentSemesterCache; checkPeriodLocks(); }
   if(page==="reports") generateReport();
-  if(page==="settings"){ firebaseCheck(); loadPromotionStatus(); }
+  if(page==="settings"){ firebaseCheck(); loadPromotionStatus(); loadCurrentSemesterSetting(); }
   if(page==="users") loadUsers();
   if(page==="timetable") loadMyTimetable();
   if(page==="alumni") loadAlumni();
@@ -605,8 +630,9 @@ async function saveSubject(){
   try{
     const department = $("subDept").value, year = $("subYear").value, name = $("subName").value.trim();
     const isSpecial = $("subSpecial").checked;
+    const semester = isSpecial ? "Both" : $("subSemester").value;
     if(!name){ alert("Subject name podunga"); return; }
-    await db.collection("subjects").add({ department, year, name, isSpecial, createdAt:new Date().toISOString() });
+    await db.collection("subjects").add({ department, year, semester, name, isSpecial, createdAt:new Date().toISOString() });
     toast("Subject added ✅");
     $("subName").value=""; $("subSpecial").checked = false;
     loadSubjects();
@@ -618,14 +644,14 @@ async function loadSubjects(){
     let snap = await db.collection("subjects").get();
     if(snap.empty){
       // First-time convenience seed so PT/Library are always available
-      await db.collection("subjects").add({ department:"All Departments", year:"All Years", name:"PT Period", isSpecial:true, createdAt:new Date().toISOString() });
-      await db.collection("subjects").add({ department:"All Departments", year:"All Years", name:"Library Hour", isSpecial:true, createdAt:new Date().toISOString() });
+      await db.collection("subjects").add({ department:"All Departments", year:"All Years", semester:"Both", name:"PT Period", isSpecial:true, createdAt:new Date().toISOString() });
+      await db.collection("subjects").add({ department:"All Departments", year:"All Years", semester:"Both", name:"Library Hour", isSpecial:true, createdAt:new Date().toISOString() });
       snap = await db.collection("subjects").get();
     }
     const subjects = snap.docs.map(d=>({id:d.id, ...d.data()}));
     const canManage = currentUser && (currentUser.role === "admin" || currentUser.role === "hod");
     $("subjectTable").innerHTML = subjects.map(s=>`
-      <tr><td>${s.name}</td><td>${s.department}</td><td>${s.year}</td><td>${s.isSpecial ? "Special" : "Regular"}</td>
+      <tr><td>${s.name}</td><td>${s.department}</td><td>${s.year}</td><td>${s.semester||"Both"}</td><td>${s.isSpecial ? "Special" : "Regular"}</td>
       <td>${canManage ? `<button onclick="deleteSubject('${s.id}')">Delete</button>` : ""}</td></tr>`).join("");
   }catch(err){ alert("Load subjects error: " + err.message); console.error(err); }
 }
@@ -640,16 +666,17 @@ async function deleteSubject(id){
   loadSubjects();
 }
 
-// Populates the Attendance page's Subject dropdown based on chosen Dept + Year
+// Populates the Attendance page's Subject dropdown based on chosen Dept + Year + Semester
 async function loadSubjectOptions(){
-  const dept = $("aDept").value, year = $("aYear").value;
+  const dept = $("aDept").value, year = $("aYear").value, semester = $("aSemester") ? $("aSemester").value : "Odd";
   const sel = $("aSubject");
   if(!dept || !year){ sel.innerHTML = `<option value="">Select Subject</option>`; return; }
   try{
     const snap = await db.collection("subjects").get();
     const subjects = snap.docs.map(d=>d.data()).filter(s=>
       (s.department === dept || s.department === "All Departments") &&
-      (s.year === year || s.year === "All Years")
+      (s.year === year || s.year === "All Years") &&
+      (s.isSpecial || (s.semester || "Odd") === semester || s.semester === "Both")
     );
     subjects.sort((a,b)=> (a.isSpecial === b.isSpecial) ? a.name.localeCompare(b.name) : (a.isSpecial ? 1 : -1));
     sel.innerHTML = `<option value="">Select Subject</option>` +
@@ -697,14 +724,24 @@ async function loadLeavePeriodsForDate(){
     const otherStaff = staffSnap.docs.map(d=>d.data()).filter(u=>u.username !== currentUser.username);
 
     $("leavePeriodsList").innerHTML = leaveTimetableForDate.map(t=>`
-      <div class="legend-row">
+      <div class="legend-row" style="flex-direction:column;align-items:flex-start">
         <b>${t.period} - ${t.subject} (${t.year} ${t.department}${t.section? " "+t.section:""})</b>
-        <select id="sub_${t.id}">
+        <select id="sub_${t.id}" onchange="toggleOtherSubField('${t.id}')">
           <option value="">-- Substitute Staff select pannunga --</option>
           ${otherStaff.map(u=>`<option value="${u.username}">${u.username}</option>`).join("")}
+          <option value="__other__">Others (name type pannunga)</option>
         </select>
+        <input id="subOther_${t.id}" class="hidden" placeholder="Substitute person name"/>
       </div>`).join("");
   }catch(err){ alert("Load timetable for leave error: " + err.message); console.error(err); }
+}
+
+function toggleOtherSubField(timetableId){
+  const sel = $("sub_" + timetableId);
+  const otherInput = $("subOther_" + timetableId);
+  if(!sel || !otherInput) return;
+  otherInput.classList.toggle("hidden", sel.value !== "__other__");
+  if(sel.value === "__other__") otherInput.focus();
 }
 
 async function submitLeaveRequest(){
@@ -717,12 +754,23 @@ async function submitLeaveRequest(){
     if(!isExamDay && leaveTimetableForDate.length > 0){
       for(const t of leaveTimetableForDate){
         const sub = $("sub_" + t.id);
-        const subUsername = sub ? sub.value : "";
-        if(!subUsername){
-          alert(`"${t.period} - ${t.subject}" ku substitute staff select pannama leave apply panna mudiyathu. (Exam day na "Exam Day" checkbox tick pannunga)`);
+        const subValue = sub ? sub.value : "";
+        let substituteStaffUsername = "", substituteName = "";
+        if(subValue === "__other__"){
+          const otherInput = $("subOther_" + t.id);
+          substituteName = otherInput ? otherInput.value.trim() : "";
+          if(!substituteName){
+            alert(`"${t.period} - ${t.subject}" ku substitute person peru type pannunga.`);
+            return;
+          }
+        } else if(subValue){
+          substituteStaffUsername = subValue;
+          substituteName = subValue;
+        } else {
+          alert(`"${t.period} - ${t.subject}" ku substitute select pannama leave apply panna mudiyathu. (Exam day na "Exam Day" checkbox tick pannunga)`);
           return;
         }
-        coverage.push({ timetableId:t.id, period:t.period, department:t.department, year:t.year, section:t.section||"", subject:t.subject, substituteStaffUsername: subUsername });
+        coverage.push({ timetableId:t.id, period:t.period, department:t.department, year:t.year, section:t.section||"", subject:t.subject, substituteStaffUsername, substituteName });
       }
     }
 
@@ -743,7 +791,7 @@ async function loadMyLeaveRequests(){
     const requests = snap.docs.map(d=>d.data()).sort((a,b)=> b.date.localeCompare(a.date));
     $("myLeaveTable").innerHTML = requests.map(r=>`
       <tr><td>${r.date}</td><td>${r.reason}</td><td>${r.isExamDay ? "Yes" : "No"}</td>
-      <td>${(r.coverage||[]).map(c=>`${c.period}→${c.substituteStaffUsername}`).join(", ") || "-"}</td></tr>`).join("");
+      <td>${(r.coverage||[]).map(c=>`${c.period}→${c.substituteName||c.substituteStaffUsername}`).join(", ") || "-"}</td></tr>`).join("");
   }catch(err){ console.error("loadMyLeaveRequests error:", err); }
 }
 
@@ -753,7 +801,7 @@ async function loadAllLeaveRequests(){
     const requests = snap.docs.map(d=>d.data()).sort((a,b)=> b.date.localeCompare(a.date));
     $("allLeaveTable").innerHTML = requests.map(r=>`
       <tr><td>${r.staffUsername}</td><td>${r.date}</td><td>${r.reason}</td><td>${r.isExamDay ? "Yes" : "No"}</td>
-      <td>${(r.coverage||[]).map(c=>`${c.period}→${c.substituteStaffUsername}`).join(", ") || "-"}</td></tr>`).join("");
+      <td>${(r.coverage||[]).map(c=>`${c.period}→${c.substituteName||c.substituteStaffUsername}`).join(", ") || "-"}</td></tr>`).join("");
   }catch(err){ console.error("loadAllLeaveRequests error:", err); }
 }
 
