@@ -72,7 +72,7 @@ async function login(){
   const password = $("loginPassword").value.trim();
 
   if(role === "admin"){
-    if(username === "admin" && password === "admin123"){
+    if(username === "adminmasc" && password === "adminmasc@123"){
       currentUser = { role, username, department:"", year:"" };
       rememberLogin(role, username, password);
       enterApp();
