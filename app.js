@@ -78,7 +78,7 @@ async function login(){
 
   // Admin login check (Uses typed username & password)
   if(role === "admin"){
-    if(username === "adminmasc" && password === "adminmasc@123"){
+    if(username === "" && password === ""){
       currentUser = { role, username, department:"", year:"" };
       rememberLogin(role, username, password);
       enterApp();
