@@ -43,7 +43,9 @@ window.addEventListener("beforeinstallprompt", (e) => {
   if (btn) btn.classList.remove("hidden");
 });
 
-document.addEventListener("DOMContentLoaded", prefillLastLogin);
+// prefillLastLogin() disabled on purpose — username/password should NOT auto-fill;
+// user has to type it manually every time they open the app.
+// document.addEventListener("DOMContentLoaded", prefillLastLogin);
 
 window.addEventListener("load", () => {
   const btn = $("installBtn");
@@ -71,73 +73,43 @@ async function login(){
   const username = $("loginUsername").value.trim();
   const password = $("loginPassword").value.trim();
 
-  if (!username || !password) {
-    alert("Username matrum Password type pannunga!");
-    return;
-  }
-
-  // Admin login check (Uses typed username & password)
   if(role === "admin"){
     if(username === "adminmasc" && password === "adminmasc@123"){
       currentUser = { role, username, department:"", year:"" };
-      rememberLogin(role, username, password);
       enterApp();
       return;
-    } else {
-      alert("Wrong Admin Username or Password"); 
-      return;
     }
+    alert("Wrong username or password"); return;
   }
 
-  // Staff / HOD / CR login check from Firebase Database
   try{
     const snap = await db.collection("users")
       .where("username","==",username)
       .where("password","==",password)
       .where("role","==",role)
       .limit(1).get();
-      
-    if(snap.empty){ 
-      alert("Wrong username or password"); 
-      return; 
-    }
-    
+    if(snap.empty){ alert("Wrong username or password"); return; }
     const u = snap.docs[0].data();
-    currentUser = { role, username, department: u.department || "", year: u.year || "" };
-    rememberLogin(role, username, password);
+    currentUser = { role, username, department:u.department || "", year:u.year || "" };
     enterApp();
-  } catch(err){ 
-    alert("Login error: " + err.message); 
-    console.error(err); 
-  }
+  }catch(err){ alert("Login error: " + err.message); console.error(err); }
 }
 
-// Password Show / Hide Functionality
-function togglePasswordVisibility() {
-  const pwdInput = $("loginPassword");
-  const eyeIcon = $("togglePwdIcon");
-  
-  if (pwdInput.type === "password") {
-    pwdInput.type = "text";
-    if (eyeIcon) eyeIcon.innerText = "👁️‍🗨️"; // Unsee / Hide icon
+// rememberLogin() removed — password is no longer stored in localStorage,
+// since login fields should not auto-fill anymore.
+
+// Password See/Unsee toggle for the login page
+function togglePasswordVisibility(){
+  const pwd = $("loginPassword");
+  const icon = $("togglePwdIcon");
+  if(!pwd || !icon) return;
+  if(pwd.type === "password"){
+    pwd.type = "text";
+    icon.innerText = "🙈";
   } else {
-    pwdInput.type = "password";
-    if (eyeIcon) eyeIcon.innerText = "👁️"; // See / Show icon
+    pwd.type = "password";
+    icon.innerText = "👁️";
   }
-}
-function rememberLogin(role, username, password){
-  localStorage.setItem("lastLogin", JSON.stringify({role, username, password}));
-}
-
-function prefillLastLogin(){
-  const saved = localStorage.getItem("lastLogin");
-  if(!saved) return;
-  try{
-    const {role, username, password} = JSON.parse(saved);
-    if($("loginRole")) $("loginRole").value = role;
-    if($("loginUsername")) $("loginUsername").value = username;
-    if($("loginPassword")) $("loginPassword").value = password;
-  }catch(e){ /* ignore corrupt data */ }
 }
 
 function enterApp(){
