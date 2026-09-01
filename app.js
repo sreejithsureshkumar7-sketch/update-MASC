@@ -43,9 +43,10 @@ window.addEventListener("beforeinstallprompt", (e) => {
   if (btn) btn.classList.remove("hidden");
 });
 
-// prefillLastLogin() disabled on purpose — username/password should NOT auto-fill;
-// user has to type it manually every time they open the app.
-// document.addEventListener("DOMContentLoaded", prefillLastLogin);
+// Admin should type username/password every time (never saved).
+// Staff/CR/HOD logins get remembered after their first successful login,
+// so the fields auto-fill next time and they just need to tap Login.
+document.addEventListener("DOMContentLoaded", prefillLastLogin);
 
 window.addEventListener("load", () => {
   const btn = $("installBtn");
@@ -91,12 +92,30 @@ async function login(){
     if(snap.empty){ alert("Wrong username or password"); return; }
     const u = snap.docs[0].data();
     currentUser = { role, username, department:u.department || "", year:u.year || "" };
+    rememberLogin(role, username, password);
     enterApp();
   }catch(err){ alert("Login error: " + err.message); console.error(err); }
 }
 
-// rememberLogin() removed — password is no longer stored in localStorage,
-// since login fields should not auto-fill anymore.
+// Saves username/password for staff/CR/HOD only, so login auto-fills next time.
+// Admin is never saved here (admin login returns early above, before this runs).
+function rememberLogin(role, username, password){
+  localStorage.setItem("lastLogin", JSON.stringify({role, username, password}));
+}
+
+// Auto-fills the last saved staff/CR/HOD login. Admin never gets here because
+// rememberLogin() is never called for admin, so nothing is ever saved for it.
+function prefillLastLogin(){
+  const saved = localStorage.getItem("lastLogin");
+  if(!saved) return;
+  try{
+    const {role, username, password} = JSON.parse(saved);
+    if(role === "admin") return; // safety net, in case of old saved data
+    if($("loginRole")) $("loginRole").value = role;
+    if($("loginUsername")) $("loginUsername").value = username;
+    if($("loginPassword")) $("loginPassword").value = password;
+  }catch(e){ /* ignore corrupt data */ }
+}
 
 // Password See/Unsee toggle for the login page
 function togglePasswordVisibility(){
