@@ -41,6 +41,12 @@
       </select>
       <input id="loginUsername" placeholder="Username" value="admin"/>
       <input id="loginPassword" type="password" placeholder="Password" value="admin123"/>
+     <div class="password-wrapper" style="position: relative; display: flex; align-items: center;">
+  <input type="password" id="loginPassword" placeholder="Enter Password" style="width: 100%; padding-right: 40px;" />
+  <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; font-size: 16px;">
+    <span id="togglePwdIcon">👁️</span>
+  </button>
+</div>
       <button onclick="login()">Login</button>
       <button id="installBtn" class="install hidden">Install App</button>
       <small>Default Admin: <b>admin</b> / <b>admin123</b></small>
