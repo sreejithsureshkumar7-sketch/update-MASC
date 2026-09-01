@@ -71,30 +71,60 @@ async function login(){
   const username = $("loginUsername").value.trim();
   const password = $("loginPassword").value.trim();
 
+  if (!username || !password) {
+    alert("Username matrum Password type pannunga!");
+    return;
+  }
+
+  // Admin login check (Uses typed username & password)
   if(role === "admin"){
     if(username === "adminmasc" && password === "adminmasc@123"){
       currentUser = { role, username, department:"", year:"" };
       rememberLogin(role, username, password);
       enterApp();
       return;
+    } else {
+      alert("Wrong Admin Username or Password"); 
+      return;
     }
-    alert("Wrong username or password"); return;
   }
 
+  // Staff / HOD / CR login check from Firebase Database
   try{
     const snap = await db.collection("users")
       .where("username","==",username)
       .where("password","==",password)
       .where("role","==",role)
       .limit(1).get();
-    if(snap.empty){ alert("Wrong username or password"); return; }
+      
+    if(snap.empty){ 
+      alert("Wrong username or password"); 
+      return; 
+    }
+    
     const u = snap.docs[0].data();
-    currentUser = { role, username, department:u.department || "", year:u.year || "" };
+    currentUser = { role, username, department: u.department || "", year: u.year || "" };
     rememberLogin(role, username, password);
     enterApp();
-  }catch(err){ alert("Login error: " + err.message); console.error(err); }
+  } catch(err){ 
+    alert("Login error: " + err.message); 
+    console.error(err); 
+  }
 }
 
+// Password Show / Hide Functionality
+function togglePasswordVisibility() {
+  const pwdInput = $("loginPassword");
+  const eyeIcon = $("togglePwdIcon");
+  
+  if (pwdInput.type === "password") {
+    pwdInput.type = "text";
+    if (eyeIcon) eyeIcon.innerText = "👁️‍🗨️"; // Unsee / Hide icon
+  } else {
+    pwdInput.type = "password";
+    if (eyeIcon) eyeIcon.innerText = "👁️"; // See / Show icon
+  }
+}
 function rememberLogin(role, username, password){
   localStorage.setItem("lastLogin", JSON.stringify({role, username, password}));
 }
